@@ -1,11 +1,11 @@
 // Service worker: permite instalar la app, abrirla sin conexión y mostrar avisos.
 // Estrategia "red primero": siempre intenta la versión nueva y usa la caché como respaldo.
-const CACHE = "conexion-ar-v7";
+const CACHE = "conexion-ar-v8";
 const ASSETS = [
   "./",
   "./index.html",
-  "./css/styles.css?v=7",
-  "./js/app.js?v=7",
+  "./css/styles.css?v=8",
+  "./js/app.js?v=8",
   "./js/crypto.js",
   "./js/firebase-config.js",
   "./manifest.json",
@@ -47,25 +47,31 @@ self.addEventListener("push", (e) => {
     // Si la app está abierta y a la vista, no hace falta el aviso
     const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     if (clients.some((c) => c.visibilityState === "visible")) return;
+    const ringing = data.kind === "call";
     await self.registration.showNotification(data.title || "Conexión AR", {
       body: data.body || "Tienes un mensaje nuevo",
       tag: data.tag || "conexion-ar",
+      data: { chat: data.chat || "" },
       icon: "icons/icon-192.png",
       badge: "icons/icon-192.png",
-      renotify: true,
-      requireInteraction: data.kind === "call",
-      vibrate: data.kind === "call" ? [400, 200, 400, 200, 400] : [200],
+      renotify: true, // cada aviso repetido de la llamada vuelve a sonar y vibrar
+      requireInteraction: ringing,
+      vibrate: ringing ? [600, 200, 600, 200, 600, 200, 600] : [200],
     });
   })());
 });
 
-// Al tocar el aviso, abrir (o enfocar) la app
+// Al tocar el aviso, abrir (o enfocar) la app directamente en esa sala
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
+  const chat = e.notification.data?.chat || "";
   e.waitUntil((async () => {
     const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     const open = clients.find((c) => new URL(c.url).origin === location.origin);
-    if (open) return open.focus();
-    return self.clients.openWindow("./");
+    if (open) {
+      if (chat) open.postMessage({ type: "open-chat", chat });
+      return open.focus();
+    }
+    return self.clients.openWindow(chat ? `./?abrir=${chat}` : "./");
   })());
 });

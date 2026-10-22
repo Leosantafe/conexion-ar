@@ -7,7 +7,7 @@ import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/1
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   doc, collection, query, where, orderBy, limit, limitToLast,
-  setDoc, getDoc, getDocFromCache, updateDoc, deleteDoc, addDoc, getDocs, onSnapshot, runTransaction,
+  setDoc, getDoc, getDocFromCache, getDocFromServer, updateDoc, deleteDoc, addDoc, getDocs, onSnapshot, runTransaction,
   serverTimestamp, Timestamp, Bytes,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, iceServers, pushConfig } from "./firebase-config.js";
@@ -79,6 +79,7 @@ const state = {
   // sala privada
   chat: null, // { chatId, keyB64, label, key, ref }
   memberId: "", // misma persona = mismo nombre en la sala, desde cualquier dispositivo
+  clockOffset: 0, // diferencia entre el reloj del servidor y el de este dispositivo
   chatUnsubs: [],
   chatTimers: [],
   chatChain: Promise.resolve(),
@@ -265,6 +266,22 @@ function triggerDownload(url, name) {
   document.body.append(a);
   a.click();
   a.remove();
+}
+
+// Hora del servidor: así no importa si el reloj de algún dispositivo está atrasado o adelantado
+const serverNow = () => Date.now() + state.clockOffset;
+
+async function syncClock() {
+  try {
+    const t0 = Date.now();
+    await setDoc(memberRef(), { clock: serverTimestamp() }, { merge: true });
+    const t1 = Date.now();
+    const snap = await getDocFromServer(memberRef());
+    const server = snap.data()?.clock?.toMillis?.();
+    if (server) state.clockOffset = server - (t0 + t1) / 2;
+  } catch (err) {
+    console.warn("Reloj:", err);
+  }
 }
 
 const dcOpen = () => state.dc?.readyState === "open";
@@ -498,12 +515,12 @@ async function joinLine({ force = false } = {}) {
     const snap = await tx.get(lineRef);
     const d = snap.data();
     const someoneWaiting = !force && d?.state === "waiting" && d.from !== me
-      && Date.now() - (d.alive || 0) < LINE_STALE_MS;
+      && serverNow() - (d.alive || 0) < LINE_STALE_MS;
     if (someoneWaiting) {
       tx.update(lineRef, { state: "claimed", claimedBy: me });
       return { role: "callee", session: d.session };
     }
-    tx.set(lineRef, { state: "waiting", from: me, session: newSession, alive: Date.now(), offer: null, answer: null });
+    tx.set(lineRef, { state: "waiting", from: me, session: newSession, alive: serverNow(), offer: null, answer: null });
     return { role: "caller", session: newSession };
   });
   if (gen !== state.lineGen) return;
@@ -536,7 +553,7 @@ async function joinLine({ force = false } = {}) {
     await updateDoc(lineRef, { offer: { type: offer.type, sdp: offer.sdp } });
 
     const beat = () => {
-      if (gen === state.lineGen && !dcOpen()) updateDoc(lineRef, { alive: Date.now() }).catch(() => {});
+      if (gen === state.lineGen && !dcOpen()) updateDoc(lineRef, { alive: serverNow() }).catch(() => {});
     };
     state.lineTimers.push(setInterval(beat, 15000));
 
@@ -671,7 +688,7 @@ const memberRef = () => doc(chatCol("members"), state.memberId);
 const memberName = (id) => (id === state.memberId ? state.myName : state.members.get(id)?.name || "Alguien");
 
 function others() {
-  return [...state.members].filter(([id, m]) => id !== state.memberId && Date.now() - m.lastSeen < HISTORY_DAYS * DAY_MS);
+  return [...state.members].filter(([id, m]) => id !== state.memberId && serverNow() - m.lastSeen < HISTORY_DAYS * DAY_MS);
 }
 
 function saveMember(data) {
@@ -704,9 +721,11 @@ async function enterChat(room) {
     updateNotifButton();
     show("screen-chat");
 
+    // Sincronizar el reloj con el servidor (máximo 3 segundos de espera)
+    await Promise.race([syncClock(), new Promise((r) => setTimeout(r, 3000))]);
     subscribePrivate();
     setDoc(state.chat.ref, { v: 2 }, { merge: true }).catch((err) => console.warn(err));
-    saveMember({ lastSeen: Date.now(), ...(await encryptedName()) });
+    saveMember({ lastSeen: serverNow(), ...(await encryptedName()) });
     state.chatTimers.push(setInterval(heartbeat, 45000), setInterval(renderPresence, 15000));
     setupPush();
     if ("Notification" in window && Notification.permission === "default" && !store.get("conexion-ar-notif-hint")) {
@@ -740,7 +759,7 @@ function subscribePrivate() {
 }
 
 function heartbeat() {
-  if (state.mode === "private" && !document.hidden) saveMember({ lastSeen: Date.now() });
+  if (state.mode === "private" && !document.hidden) saveMember({ lastSeen: serverNow() });
 }
 
 async function applyMembers(snap) {
@@ -771,7 +790,7 @@ async function applyMembers(snap) {
 function renderPresence() {
   if (state.mode !== "private" || !state.chat) return;
   const list = others();
-  const now = Date.now();
+  const now = serverNow();
   const typing = list.filter(([, m]) => now - m.typing < 6000);
   const online = list.filter(([, m]) => now - m.lastSeen < ONLINE_MS);
   const title = list.length === 1 ? list[0][1].name : state.chat.label;
@@ -895,7 +914,7 @@ function markRead() {
   if (newest <= state.myRead) return;
   state.myRead = newest;
   clearTimeout(state.readTimer);
-  state.readTimer = setTimeout(() => saveMember({ lastRead: state.myRead, lastSeen: Date.now() }), 800);
+  state.readTimer = setTimeout(() => saveMember({ lastRead: state.myRead, lastSeen: serverNow() }), 800);
 }
 
 function onIncomingPrivate(entry) {
@@ -1268,10 +1287,9 @@ function onTyping() {
   autoGrow();
   updateSendButton();
   if (state.mode !== "private" || !$("#msgInput").value.trim()) return;
-  const now = Date.now();
-  if (now - state.typingSent > 3000) {
-    state.typingSent = now;
-    saveMember({ typing: now, lastSeen: now });
+  if (Date.now() - state.typingSent > 3000) {
+    state.typingSent = Date.now();
+    saveMember({ typing: serverNow(), lastSeen: serverNow() });
   }
 }
 
@@ -1838,7 +1856,7 @@ function pickMember() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "contact-main contact";
-    const online = Date.now() - m.lastSeen < ONLINE_MS;
+    const online = serverNow() - m.lastSeen < ONLINE_MS;
     btn.innerHTML = '<span class="avatar"></span><span class="contact-text"><strong></strong><small></small></span>';
     btn.querySelector(".avatar").textContent = initial(m.name);
     btn.querySelector("strong").textContent = m.name;
@@ -1881,12 +1899,17 @@ async function startPrivateCall(video) {
   state.inCall = true;
   state.peerName = call.peerName;
   showCallView(video, `Llamando a ${call.peerName}…`);
-  setDoc(ref, { from: state.memberId, to: target, video, state: "ringing", at: Date.now() }).catch((err) => {
+  setDoc(ref, { from: state.memberId, to: target, video, state: "ringing", at: serverNow() }).catch((err) => {
     console.error(err);
     toast(FIREBASE_ERROR);
     finishCall({ notify: false, outcome: "missed" });
   });
+  // Si tiene la app cerrada, el aviso se repite (suena y vibra) hasta que atienda o pasen 40 s
   pushNotify({ t: "ring", video }, [target]);
+  call.ringTimer = setInterval(() => {
+    if (state.call === call && !call.joining) pushNotify({ t: "ring", video }, [target]);
+    else clearInterval(call.ringTimer);
+  }, 5000);
 
   call.unsub = onSnapshot(ref, (snap) => {
     const d = snap.data();
@@ -1915,7 +1938,7 @@ function onCallDocChange(change) {
   const d = change.doc.data();
   const id = change.doc.id;
   if (change.type === "added") {
-    if (Date.now() - d.at > 45000) return;
+    if (serverNow() - d.at > 45000) return;
     if (state.call || state.inCall || state.incomingCall) {
       updateDoc(change.doc.ref, { state: "busy" }).catch(() => {});
       return;
@@ -1991,7 +2014,10 @@ function finishCall({ notify = true, outcome } = {}) {
   if (!call) return;
   state.call = null;
   clearTimeout(call.connectTimer);
+  clearInterval(call.ringTimer);
   call.unsub?.();
+  // Si nunca atendió, su aviso de "te está llamando" pasa a "llamada perdida"
+  if (call.role === "caller" && !call.start) pushNotify({ t: "missed", video: call.video }, [call.peer]);
   const duration = call.start ? Math.round((Date.now() - call.start) / 1000) : 0;
   if (notify && dcOpen()) send({ type: "hangup" });
   if (notify) updateDoc(call.ref, { state: "ended" }).catch(() => {});
@@ -2001,7 +2027,8 @@ function finishCall({ notify = true, outcome } = {}) {
   state.line = null;
   state.lineGen++;
   teardownPeer();
-  if (call.lineSecret && call.role === "caller") cleanupLine(call.lineSecret);
+  // Borrar el punto de encuentro de la llamada (de los dos lados, por si uno no llega)
+  if (call.lineSecret) cleanupLine(call.lineSecret);
   if (call.role === "caller" && state.chat) {
     sendPrivate({ t: "call", video: call.video, duration, outcome: outcome || (call.start ? "done" : "missed") });
   }
@@ -2090,10 +2117,13 @@ async function setupPush() {
 
 function pushNotify(body, to = null) {
   if (!pushConfig?.server || state.mode !== "private") return;
-  const preview = body.t === "ring"
-    ? (body.video ? "📹 Te está videollamando" : "📞 Te está llamando")
-    : body.t === "file" ? (body.voice ? "🎤 Audio" : "📎 Archivo")
-      : body.t === "call" ? null : "Nuevo mensaje";
+  const kind = body.t === "ring" ? "call" : body.t === "missed" ? "missed" : "msg";
+  const preview = {
+    ring: body.video ? "📹 Te está videollamando… toca para atender" : "📞 Te está llamando… toca para atender",
+    missed: body.video ? "📹 Videollamada perdida" : "📞 Llamada perdida",
+    file: body.voice ? "🎤 Audio" : "📎 Archivo",
+    text: "Nuevo mensaje",
+  }[body.t];
   if (!preview) return;
   const group = others().length > 1;
   fetch(`${pushConfig.server}/notify`, {
@@ -2105,7 +2135,7 @@ function pushNotify(body, to = null) {
       to,
       title: group ? `${state.myName} · ${state.chat.label}` : state.myName,
       body: preview,
-      kind: body.t === "ring" ? "call" : "msg",
+      kind,
     }),
   }).catch(() => {});
 }
@@ -2247,8 +2277,28 @@ function init() {
   setupViewport();
   setupPwa();
 
+  // Al tocar un aviso: abrir la sala de ese aviso (si está guardada en este dispositivo)
+  const openChat = (chatId) => {
+    const room = getSavedRooms().find((r) => r.chatId === chatId);
+    if (!room || !store.get(KEY_NAME)) return false;
+    if (state.chat?.chatId === chatId) return true;
+    if (state.mode) {
+      location.href = `${location.pathname}?abrir=${chatId}`;
+      return true;
+    }
+    enterChat(room);
+    return true;
+  };
+  navigator.serviceWorker?.addEventListener("message", (e) => {
+    if (e.data?.type === "open-chat") openChat(e.data.chat);
+  });
+
+  const fromNotification = new URLSearchParams(location.search).get("abrir");
+  if (fromNotification) history.replaceState(null, "", location.pathname);
+
   // Si hay una sola sala guardada, entrar directo al abrir la app
   const saved = getSavedRooms();
+  if (fromNotification && openChat(fromNotification)) return;
   if (!invite && saved.length === 1 && store.get(KEY_NAME) && !session.get(KEY_NO_AUTO)) {
     enterChat(saved[0]);
   }

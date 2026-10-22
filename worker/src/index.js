@@ -4,6 +4,8 @@
 
 const FIRESTORE = "https://firestore.googleapis.com/v1";
 const ALLOWED_ORIGINS = ["https://conexion-ar.web.app", "http://localhost:3000"];
+// La apiKey de Firebase está restringida al sitio: el Worker se identifica como tal
+const GOOGLE_HEADERS = { Referer: "https://conexion-ar.web.app/" };
 
 const enc = new TextEncoder();
 
@@ -78,7 +80,7 @@ async function sendPush(subscription, data, env) {
       Authorization: await vapidHeader(subscription.endpoint, env),
       "Content-Encoding": "aes128gcm",
       "Content-Type": "application/octet-stream",
-      TTL: data.kind === "call" ? "60" : "86400",
+      TTL: data.kind === "call" ? "30" : "86400",
       Urgency: "high",
     },
     body,
@@ -95,8 +97,8 @@ async function idToken(env) {
     ? `https://securetoken.googleapis.com/v1/token?key=${env.FIREBASE_API_KEY}`
     : `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${env.FIREBASE_API_KEY}`;
   const res = await fetch(url, session?.refresh
-    ? { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: `grant_type=refresh_token&refresh_token=${session.refresh}` }
-    : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ returnSecureToken: true }) });
+    ? { method: "POST", headers: { ...GOOGLE_HEADERS, "Content-Type": "application/x-www-form-urlencoded" }, body: `grant_type=refresh_token&refresh_token=${session.refresh}` }
+    : { method: "POST", headers: { ...GOOGLE_HEADERS, "Content-Type": "application/json" }, body: JSON.stringify({ returnSecureToken: true }) });
   if (!res.ok) {
     session = null;
     throw new Error(`auth ${res.status}`);
@@ -114,7 +116,7 @@ const docsUrl = (env, path) => `${FIRESTORE}/projects/${env.FIREBASE_PROJECT}/da
 
 async function listMembers(env, chatId) {
   const res = await fetch(`${docsUrl(env, `chats/${chatId}/members`)}?pageSize=100`, {
-    headers: { Authorization: `Bearer ${await idToken(env)}` },
+    headers: { ...GOOGLE_HEADERS, Authorization: `Bearer ${await idToken(env)}` },
   });
   if (!res.ok) throw new Error(`firestore ${res.status}`);
   return (await res.json()).documents || [];
@@ -124,7 +126,7 @@ async function removeSubscription(env, chatId, memberId, device) {
   const mask = encodeURIComponent(`push.\`${device}\``);
   await fetch(`${docsUrl(env, `chats/${chatId}/members/${memberId}`)}?updateMask.fieldPaths=${mask}`, {
     method: "PATCH",
-    headers: { Authorization: `Bearer ${await idToken(env)}`, "Content-Type": "application/json" },
+    headers: { ...GOOGLE_HEADERS, Authorization: `Bearer ${await idToken(env)}`, "Content-Type": "application/json" },
     body: JSON.stringify({ fields: {} }),
   });
 }
@@ -134,11 +136,14 @@ async function notify(request, env) {
   const { chatId, from, to, title, body, kind } = await request.json();
   if (!/^[0-9a-f]{40}$/.test(chatId || "") || typeof from !== "string") return json({ error: "datos inválidos" }, 400);
 
+  // kind: "msg" (mensaje), "call" (está sonando) o "missed" (reemplaza el aviso de la llamada)
+  const safeKind = ["call", "missed"].includes(kind) ? kind : "msg";
   const data = {
     title: String(title || "Conexión AR").slice(0, 80),
     body: String(body || "Nuevo mensaje").slice(0, 120),
-    kind: kind === "call" ? "call" : "msg",
-    tag: `${kind === "call" ? "call" : "msg"}-${chatId.slice(0, 8)}`,
+    kind: safeKind,
+    tag: `${safeKind === "msg" ? "msg" : "call"}-${chatId.slice(0, 8)}`,
+    chat: chatId,
   };
 
   let sent = 0;
