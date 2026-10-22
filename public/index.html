@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <title>Conexión AR</title>
+  <link rel="canonical" href="https://conexion-ar.web.app/">
+  <meta name="apple-mobile-web-app-title" content="Conexión AR">
+  <meta name="description" content="Llamadas, videollamadas, chat, audios y archivos entre PC y celular, gratis y directo.">
+  <meta name="theme-color" content="#0a0e1a" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#eef1f8" media="(prefers-color-scheme: light)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <style>.i{width:20px;height:20px;fill:none;stroke:currentColor}</style>
+  <link rel="stylesheet" href="css/styles.css?v=7">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+  <script type="module" src="js/app.js?v=7"></script>
+</head>
+<body>
+
+  <!-- Íconos (estilo Lucide) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98"/><path d="m15.41 6.51-6.82 3.98"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><path d="M21 12H9"/></symbol>
+    <symbol id="i-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></symbol>
+    <symbol id="i-flip" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5Z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-checks" viewBox="0 0 24 24"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  </svg>
+
+  <div class="bg-blobs" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <!-- Inicio -->
+  <main id="screen-home" class="screen">
+    <div class="card">
+      <div class="brand">
+        <img src="icons/icon-192.png" alt="" width="60" height="60" class="logo">
+        <div>
+          <h1>Conexión <span class="accent">AR</span></h1>
+          <p class="tagline">Tu PC y tu celular, conectados.</p>
+        </div>
+      </div>
+
+      <div id="configWarning" class="warning" hidden>⚠️ Falta configurar Firebase en <code>js/firebase-config.js</code>.</div>
+
+      <!-- Paso 1: nombre y tipo de sala -->
+      <div class="step" data-step="main">
+        <ul class="features">
+          <li><svg class="i"><use href="#i-phone"/></svg>Llamadas</li>
+          <li><svg class="i"><use href="#i-video"/></svg>Video</li>
+          <li><svg class="i"><use href="#i-chat"/></svg>Chat</li>
+          <li><svg class="i"><use href="#i-mic"/></svg>Audios</li>
+          <li><svg class="i"><use href="#i-file"/></svg>Archivos</li>
+        </ul>
+
+        <label class="field">
+          <span>Tu nombre</span>
+          <input id="nameInput" maxlength="30" placeholder="¿Cómo te llamas?" autocomplete="nickname" enterkeyhint="done">
+        </label>
+
+        <section id="contactsBox" class="contacts" hidden>
+          <h3>Mis salas guardadas</h3>
+          <div id="contactList" class="contact-list"></div>
+        </section>
+
+        <div class="options">
+          <button type="button" class="option" data-go="private">
+            <span class="option-icon"><svg class="i"><use href="#i-lock"/></svg></span>
+            <span class="option-text">
+              <strong>Sala privada</strong>
+              <small>Con nombre y contraseña. Chat con historial, para pareja o grupo familiar.</small>
+            </span>
+            <svg class="i chevron"><use href="#i-arrow"/></svg>
+          </button>
+          <button type="button" class="option" data-go="quick">
+            <span class="option-icon quick"><svg class="i"><use href="#i-zap"/></svg></span>
+            <span class="option-text">
+              <strong>Sala rápida</strong>
+              <small>Con código o QR. Para conectarse una vez.</small>
+            </span>
+            <svg class="i chevron"><use href="#i-arrow"/></svg>
+          </button>
+        </div>
+
+        <button id="installBtn" class="btn ghost" hidden><svg class="i"><use href="#i-download"/></svg>Instalar app</button>
+        <p class="footnote"><svg class="i"><use href="#i-lock"/></svg>Conexión directa y cifrada entre tus dispositivos</p>
+      </div>
+
+      <!-- Paso 2a: sala privada -->
+      <form id="privateForm" class="step" data-step="private" autocomplete="off" hidden>
+        <button type="button" class="back" data-go="main"><svg class="i"><use href="#i-back"/></svg>Volver</button>
+        <h2 class="step-title"><span class="option-icon"><svg class="i"><use href="#i-lock"/></svg></span>Sala privada</h2>
+        <p class="muted small">Elijan un nombre de sala y una contraseña y compártanlos con quienes quieran (pareja, familia). Todos los que los escriban, desde cualquier dispositivo, estarán en la misma sala. Los mensajes quedan guardados y cifrados.</p>
+        <label class="field">
+          <span>Nombre de la sala</span>
+          <input id="lineName" maxlength="40" placeholder="Ej: leo-y-ana" autocapitalize="none" spellcheck="false" enterkeyhint="next">
+        </label>
+        <label class="field">
+          <span>Contraseña</span>
+          <span class="pass-wrap">
+            <input id="linePass" type="password" maxlength="64" placeholder="Mínimo 6 caracteres" autocomplete="new-password" enterkeyhint="go">
+            <button type="button" id="passToggle" class="icon-btn sm" aria-label="Mostrar contraseña"><svg class="i"><use href="#i-eye"/></svg></button>
+          </span>
+        </label>
+        <label class="check"><input id="lineRemember" type="checkbox" checked> Recordar en este dispositivo</label>
+        <button id="lineBtn" class="btn primary lg"><svg class="i"><use href="#i-lock"/></svg>Entrar a la sala privada</button>
+      </form>
+
+      <!-- Paso 2b: sala rápida -->
+      <div class="step" data-step="quick" hidden>
+        <button type="button" class="back" data-go="main"><svg class="i"><use href="#i-back"/></svg>Volver</button>
+        <h2 class="step-title"><span class="option-icon quick"><svg class="i"><use href="#i-zap"/></svg></span>Sala rápida</h2>
+        <p class="muted small">Crea una sala y el otro dispositivo escanea el QR, o escribe el código que te pasaron.</p>
+        <button id="createBtn" class="btn primary lg"><svg class="i"><use href="#i-plus"/></svg>Crear sala con código</button>
+        <div class="divider"><span>o únete con un código</span></div>
+        <div class="join-row">
+          <input id="codeInput" class="code-input" maxlength="6" placeholder="CÓDIGO" autocapitalize="characters" autocomplete="off" enterkeyhint="go">
+          <button id="joinBtn" class="btn">Unirse<svg class="i"><use href="#i-arrow"/></svg></button>
+        </div>
+        <p id="inviteHint" class="hint" hidden></p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Esperando conexión -->
+  <main id="screen-wait" class="screen" hidden>
+    <div class="card center">
+      <div id="waitAvatar" class="avatar xl pulse" hidden>?</div>
+      <h2 id="waitTitle">Tu sala está lista</h2>
+      <p id="waitText" class="muted">Escanea el QR con el otro dispositivo o comparte el enlace</p>
+      <div id="shareBox">
+        <div id="qr" class="qr"></div>
+        <div id="roomCode" class="room-code" aria-label="Código de sala"></div>
+        <div class="row">
+          <button id="copyBtn" class="btn"><svg class="i"><use href="#i-copy"/></svg>Copiar enlace</button>
+          <button id="shareBtn" class="btn" hidden><svg class="i"><use href="#i-share"/></svg>Compartir</button>
+        </div>
+      </div>
+      <p class="status-line"><span class="spinner"></span><span id="waitStatus">Esperando al otro dispositivo…</span></p>
+      <button id="cancelBtn" class="btn ghost">Cancelar</button>
+    </div>
+  </main>
+
+  <!-- Chat + llamadas -->
+  <main id="screen-chat" class="screen chat" hidden>
+    <div class="chat-shell">
+      <header class="topbar">
+        <div class="peer">
+          <div class="avatar" id="peerAvatar">?</div>
+          <div class="peer-text">
+            <strong id="peerName">Contacto</strong>
+            <small id="connStatus" class="status">Conectado</small>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="notifBtn" class="icon-btn" title="Activar avisos" aria-label="Activar avisos" hidden><svg class="i"><use href="#i-bell"/></svg></button>
+          <button id="audioCallBtn" class="icon-btn" title="Llamada de voz" aria-label="Llamada de voz"><svg class="i"><use href="#i-phone"/></svg></button>
+          <button id="videoCallBtn" class="icon-btn" title="Videollamada" aria-label="Videollamada"><svg class="i"><use href="#i-video"/></svg></button>
+          <button id="leaveBtn" class="icon-btn" title="Salir" aria-label="Salir"><svg class="i"><use href="#i-logout"/></svg></button>
+        </div>
+      </header>
+
+      <div class="chat-main">
+        <section id="callView" class="call" hidden>
+          <video id="remoteVideo" autoplay playsinline></video>
+          <div class="call-avatar">
+            <div class="avatar xl" id="callAvatar">?</div>
+            <strong id="callName"></strong>
+          </div>
+          <video id="localVideo" class="mirror" autoplay playsinline muted></video>
+          <span id="callStatus" class="call-status">Llamando…</span>
+          <div class="call-controls">
+            <button id="micBtn" class="round" title="Micrófono" aria-label="Silenciar micrófono"><svg class="i"><use href="#i-mic"/></svg></button>
+            <button id="camBtn" class="round" title="Cámara" aria-label="Apagar cámara"><svg class="i"><use href="#i-video"/></svg></button>
+            <button id="flipBtn" class="round" title="Cambiar cámara" aria-label="Cambiar cámara"><svg class="i"><use href="#i-flip"/></svg></button>
+            <button id="screenBtn" class="round" title="Compartir pantalla" aria-label="Compartir pantalla" hidden><svg class="i"><use href="#i-monitor"/></svg></button>
+            <button id="hangupBtn" class="round danger hang" title="Colgar" aria-label="Colgar"><svg class="i"><use href="#i-phone"/></svg></button>
+          </div>
+        </section>
+
+        <div class="chat-pane">
+          <section id="messages" class="messages" aria-live="polite"></section>
+          <div id="emojiPanel" class="emoji-panel" hidden></div>
+          <form id="composer" class="composer">
+            <div class="input-wrap">
+              <button type="button" id="emojiBtn" class="icon-btn sm" aria-label="Emojis"><svg class="i"><use href="#i-smile"/></svg></button>
+              <textarea id="msgInput" rows="1" placeholder="Escribe un mensaje…" autocomplete="off" enterkeyhint="send"></textarea>
+              <label class="icon-btn sm" title="Enviar archivo" aria-label="Enviar archivo"><svg class="i"><use href="#i-clip"/></svg><input id="fileInput" type="file" multiple hidden></label>
+            </div>
+            <div id="recBar" class="rec-bar" hidden>
+              <button type="button" id="recCancel" class="icon-btn sm" aria-label="Descartar audio"><svg class="i"><use href="#i-trash"/></svg></button>
+              <span class="rec-dot"></span>
+              <span id="recTime" class="rec-time">0:00</span>
+              <span class="rec-label">Grabando audio…</span>
+            </div>
+            <button id="sendBtn" class="send" aria-label="Grabar audio"><svg class="i"><use href="#i-mic"/></svg></button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div id="dropOverlay" class="drop-overlay" hidden>
+      <div><svg class="i"><use href="#i-file"/></svg><p>Suelta los archivos para enviarlos</p></div>
+    </div>
+  </main>
+
+  <!-- Llamada entrante -->
+  <div id="incomingCall" class="modal incoming" hidden>
+    <div class="incoming-card">
+      <div class="avatar xl pulse" id="incomingAvatar">?</div>
+      <h2 id="incomingTitle">Llamada entrante</h2>
+      <div class="incoming-actions">
+        <div class="action">
+          <button id="rejectBtn" class="round danger hang lg" aria-label="Rechazar"><svg class="i"><use href="#i-phone"/></svg></button>
+          <span>Rechazar</span>
+        </div>
+        <div class="action">
+          <button id="acceptBtn" class="round accept lg" aria-label="Aceptar"><svg class="i"><use href="#i-phone"/></svg></button>
+          <span>Aceptar</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Elegir a quién llamar (salas privadas con varias personas) -->
+  <div id="pickModal" class="modal" hidden>
+    <div class="card dialog" role="dialog" aria-modal="true" aria-labelledby="pickTitle">
+      <h2 id="pickTitle">¿A quién llamas?</h2>
+      <div id="pickList" class="contact-list"></div>
+      <button id="pickCancel" class="btn ghost">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Diálogo de confirmación propio (sin alertas del navegador) -->
+  <div id="confirmModal" class="modal" hidden>
+    <div class="card center dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <h2 id="confirmTitle">¿Salir de la conversación?</h2>
+      <p id="confirmText" class="muted">Se cortará la conexión con el otro dispositivo.</p>
+      <div class="row">
+        <button id="confirmNo" class="btn">Cancelar</button>
+        <button id="confirmYes" class="btn danger">Salir</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

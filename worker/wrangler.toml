@@ -1,0 +1,13 @@
+name = "conexion-ar-push"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+[vars]
+FIREBASE_PROJECT = "conexion-ar"
+FIREBASE_API_KEY = "AIzaSyC51wXedoUkvnDToj4ovzi0nV4n1hnZUCU"
+VAPID_PUBLIC_KEY = "BC5HIu9GByoovpM7aWvMpX-b8nQfg7edewFLNFiqHPeMlkszIKfkUIhE2ToIkmnJfijm_AnC1y-4e4m2ghSsbuc"
+VAPID_SUBJECT = "https://conexion-ar.web.app"
+
+# Secretos (no van en este archivo; se cargan con `npx wrangler secret put NOMBRE`):
+# VAPID_PRIVATE_JWK  clave privada VAPID (obligatoria)
+# TURN_KEY_ID / TURN_API_TOKEN  servidor TURN de Cloudflare (opcional)

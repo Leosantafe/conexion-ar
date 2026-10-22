@@ -1,0 +1,18 @@
+{
+  "id": "https://conexion-ar.web.app/",
+  "name": "Conexión AR - Llamadas y chat",
+  "short_name": "Conexión AR",
+  "description": "Llamadas, videollamadas, chat y archivos entre PC y celular.",
+  "lang": "es-AR",
+  "start_url": "https://conexion-ar.web.app/",
+  "scope": "https://conexion-ar.web.app/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0e1a",
+  "theme_color": "#0a0e1a",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

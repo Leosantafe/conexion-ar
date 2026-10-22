@@ -1,0 +1,15 @@
+# Dependencias y cachés
+node_modules/
+.firebase/
+worker/.wrangler/
+*.log
+
+# Secretos locales (las claves privadas van como secretos del Worker, nunca en el repo)
+.env
+.dev.vars
+*.pem
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
