@@ -8,7 +8,7 @@ import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   doc, collection, query, where, orderBy, limit, limitToLast,
   setDoc, getDoc, getDocFromCache, getDocFromServer, updateDoc, deleteDoc, addDoc, getDocs, onSnapshot, runTransaction,
-  serverTimestamp, Timestamp, Bytes,
+  serverTimestamp, Timestamp, Bytes, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, iceServers, pushConfig } from "./firebase-config.js";
 import {
@@ -80,6 +80,7 @@ const state = {
   chat: null, // { chatId, keyB64, label, key, ref }
   memberId: "", // misma persona = mismo nombre en la sala, desde cualquier dispositivo
   clockOffset: 0, // diferencia entre el reloj del servidor y el de este dispositivo
+  retentionDays: HISTORY_DAYS, // mensajes temporales: 1, 7 o 30 días (lo elige cualquiera de la sala)
   chatUnsubs: [],
   chatTimers: [],
   chatChain: Promise.resolve(),
@@ -718,6 +719,7 @@ async function enterChat(room) {
     $("#composer").classList.remove("disabled");
     $("#audioCallBtn").disabled = false;
     $("#videoCallBtn").disabled = false;
+    $("#menuBtn").hidden = false;
     updateNotifButton();
     show("screen-chat");
 
@@ -733,6 +735,7 @@ async function enterChat(room) {
       setTimeout(() => toast("Toca la 🔔 de arriba para recibir avisos aunque la app esté cerrada"), 1500);
     }
     setTimeout(cleanupOldData, 5000);
+    state.chatTimers.push(setInterval(cleanupOldData, 60 * 60 * 1000));
   } catch (err) {
     console.error(err);
     toast(FIREBASE_ERROR);
@@ -745,6 +748,7 @@ function subscribePrivate() {
     state.chatChain = state.chatChain.then(() => fn(snap)).catch(console.error);
   };
   state.chatUnsubs.push(
+    onSnapshot(state.chat.ref, (snap) => applyRetention(snap.data()?.retention)),
     onSnapshot(chatCol("members"), queue(applyMembers)),
     onSnapshot(
       query(chatCol("messages"), orderBy("ts"), limitToLast(MAX_HISTORY)),
@@ -829,6 +833,7 @@ async function applyMessages(snap) {
     }
     const d = change.doc.data({ serverTimestamps: "estimate" });
     const ts = d.ts?.toMillis ? d.ts.toMillis() : Date.now();
+    if (!existing && ts < retentionCutoff()) continue; // ya venció (se borra en la próxima limpieza)
     const pending = change.doc.metadata.hasPendingWrites;
     if (existing) {
       existing.pending = pending;
@@ -863,6 +868,7 @@ function renderPrivateMessage(entry) {
     senderId: entry.mine ? "" : entry.from,
   };
   if (b.t === "call") return addCallLog(entry);
+  if (b.t === "setting" || b.t === "cleared") return addInfoLog(entry);
   if (b.t === "file") {
     const ui = addFileMessage({ name: b.name, size: b.size, mine: entry.mine, voice: b.voice, duration: b.duration }, opts);
     loadPrivateFile(entry, ui);
@@ -1000,19 +1006,99 @@ function fetchParts(entry, ui, download) {
   });
 }
 
+// ---------- Mensajes temporales y vaciar chat ----------
+const retentionCutoff = () => serverNow() - state.retentionDays * DAY_MS;
+const RETENTION_LABEL = { 1: "24 horas", 7: "7 días", 30: "30 días" };
+
+// Borra en tandas todo lo que devuelve la consulta (hasta 4000 documentos por vez)
+async function deleteAll(q) {
+  for (let round = 0; round < 20; round++) {
+    const snap = await getDocs(q);
+    if (snap.empty) return;
+    const batch = writeBatch(db);
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    if (snap.size < 200) return;
+  }
+}
+
 async function cleanupOldData() {
   if (!state.chat) return;
   try {
-    const cutoff = Timestamp.fromMillis(Date.now() - HISTORY_DAYS * DAY_MS);
+    const cutoff = Timestamp.fromMillis(retentionCutoff());
     for (const name of ["messages", "parts"]) {
-      const snap = await getDocs(query(chatCol(name), where("ts", "<", cutoff), limit(100)));
-      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+      await deleteAll(query(chatCol(name), where("ts", "<", cutoff), limit(200)));
     }
-    const calls = await getDocs(query(chatCol("calls"), where("at", "<", Date.now() - DAY_MS), limit(100)));
-    await Promise.all(calls.docs.map((d) => deleteDoc(d.ref)));
+    await deleteAll(query(chatCol("calls"), where("at", "<", serverNow() - DAY_MS), limit(200)));
   } catch (err) {
     console.warn("Limpieza:", err);
   }
+}
+
+function applyRetention(days) {
+  state.retentionDays = [1, 7, 30].includes(days) ? days : HISTORY_DAYS;
+  document.querySelectorAll("#roomMenu [data-days]").forEach((b) => {
+    b.setAttribute("aria-checked", String(Number(b.dataset.days) === state.retentionDays));
+  });
+  // Quitar de la vista lo que ya venció con la nueva duración
+  const cutoff = retentionCutoff();
+  state.msgs.forEach((m, id) => {
+    if (m.ts < cutoff) {
+      m.el.remove();
+      state.msgs.delete(id);
+    }
+  });
+  refreshDays();
+}
+
+async function setRetention(days) {
+  $("#roomMenu").hidden = true;
+  if (days === state.retentionDays) return;
+  try {
+    await setDoc(state.chat.ref, { retention: days }, { merge: true });
+    sendPrivate({ t: "setting", retention: days });
+    setTimeout(cleanupOldData, 2000);
+  } catch (err) {
+    console.error(err);
+    toast(FIREBASE_ERROR);
+  }
+}
+
+async function clearChat() {
+  $("#roomMenu").hidden = true;
+  const ok = await askConfirm({
+    title: "¿Vaciar el chat?",
+    text: "Se borrarán todos los mensajes, fotos, audios y archivos de esta sala para todos. No se puede deshacer.",
+    yes: "Vaciar",
+  });
+  if (!ok) return;
+  toast("Vaciando el chat…");
+  try {
+    for (const name of ["messages", "parts", "calls"]) {
+      await deleteAll(query(chatCol(name), limit(200)));
+    }
+    state.localFiles.clear();
+    sendPrivate({ t: "cleared" });
+    toast("Chat vaciado");
+  } catch (err) {
+    console.error(err);
+    toast(FIREBASE_ERROR);
+  }
+}
+
+function addInfoLog(entry) {
+  const who = entry.mine ? "Activaste" : `${memberName(entry.from)} activó`;
+  const text = entry.body.t === "cleared"
+    ? `${entry.mine ? "Vaciaste" : `${memberName(entry.from)} vació`} el chat`
+    : `${who} mensajes temporales: ${RETENTION_LABEL[entry.body.retention] || "30 días"}`;
+  const el = document.createElement("div");
+  el.className = "call-log info";
+  el.innerHTML = `<svg class="i"><use href="#i-${entry.body.t === "cleared" ? "trash" : "timer"}"/></svg><span></span><time></time>`;
+  el.querySelector("span").textContent = text;
+  el.querySelector("time").textContent = timeLabel(entry.ts);
+  insertByTs(el, entry.ts);
+  scrollToBottom(false);
+  return el;
 }
 
 // ---------- Pantalla de espera (salas rápidas) ----------
@@ -2302,6 +2388,13 @@ function init() {
   $("#flipBtn").addEventListener("click", flipCamera);
   $("#screenBtn").addEventListener("click", toggleScreenShare);
   $("#notifBtn").addEventListener("click", enableNotifications);
+  $("#menuBtn").addEventListener("click", () => { $("#roomMenu").hidden = false; });
+  $("#menuClose").addEventListener("click", () => { $("#roomMenu").hidden = true; });
+  $("#roomMenu").addEventListener("click", (e) => { if (e.target.id === "roomMenu") $("#roomMenu").hidden = true; });
+  document.querySelectorAll("#roomMenu [data-days]").forEach((btn) => {
+    btn.addEventListener("click", () => setRetention(Number(btn.dataset.days)));
+  });
+  $("#clearChatBtn").addEventListener("click", clearChat);
   $("#leaveBtn").addEventListener("click", async () => {
     if (isPrivate() && !state.call) return leave();
     const ok = await askConfirm({

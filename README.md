@@ -7,7 +7,9 @@ Web app (PWA) de chat, audios, archivos, llamadas y videollamadas entre PC y cel
 ## Dos tipos de sala
 
 **Sala privada (nombre + contraseña)**
-- Chat de 2 o más personas con historial de 30 días y mensajes pendientes (llegan aunque el otro no esté conectado).
+- Chat de 2 o más personas con historial y mensajes pendientes (llegan aunque el otro no esté conectado).
+- Mensajes temporales: en ⋮ Opciones se elige que se borren solos a las 24 horas, 7 días o 30 días (por defecto). Botón "Vaciar chat para todos".
+- Fotos con visor a pantalla completa; se comprimen a 1920 px antes de enviarse. Se pueden pegar con Ctrl+V.
 - Todo se guarda **cifrado de extremo a extremo** (AES-GCM) en Firestore. La clave se deriva del nombre de sala + contraseña con PBKDF2 y nunca sale del dispositivo.
 - ✓ enviado / ✓✓ leído, "escribiendo…", en línea / última vez.
 - Audios y archivos de hasta 15 MB (cifrados, en partes de 700 KB).

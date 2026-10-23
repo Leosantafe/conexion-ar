@@ -524,6 +524,7 @@ audio.preview { object-fit: initial; }
 }
 .call-log .i { width: 16px; height: 16px; color: var(--ok); }
 .call-log.missed .i { color: var(--danger); }
+.call-log.info .i { color: var(--muted); }
 .call-log time { color: var(--muted); font-size: .72rem; }
 .status.typing { color: var(--primary); }
 .status.typing::before { display: none; }
@@ -544,6 +545,34 @@ audio.preview { object-fit: initial; }
 }
 .lazy-download .i { width: 16px; height: 16px; }
 #pickModal .card { gap: 14px; }
+
+/* Opciones de la sala */
+.menu-section { display: flex; flex-direction: column; gap: 10px; }
+.menu-section h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1rem; }
+.menu-section h3 .i { color: var(--primary); }
+.seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.seg button {
+  padding: 10px 4px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-weight: 600;
+  font-size: .88rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.seg button[aria-checked="true"] { background: var(--grad); color: #fff; box-shadow: 0 4px 12px rgb(99 102 241 / .3); }
+.btn.danger-outline { background: transparent; color: var(--danger); border-color: rgb(239 68 68 / .5); }
+.btn.danger-outline:hover { background: rgb(239 68 68 / .1); }
+#roomMenu .card { gap: 18px; }
 
 /* Fotos: solo la imagen en la burbuja; al tocarla se abre en pantalla completa */
 .msg.image-msg { padding: 4px; }
