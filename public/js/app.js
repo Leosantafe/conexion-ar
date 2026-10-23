@@ -939,6 +939,7 @@ async function sendPrivate(body, ref = doc(chatCol("messages"))) {
 }
 
 async function sendPrivateFile({ file, meta }) {
+  file = await compressImage(file);
   if (file.size > MAX_PRIVATE_FILE) {
     toast(`En salas privadas el máximo es ${formatSize(MAX_PRIVATE_FILE)} por archivo`);
     return;
@@ -1548,6 +1549,11 @@ function addFileMessage({ name, size, mine, voice, duration }, opts) {
         preview.className = "preview";
         el.insertBefore(preview, body);
       }
+      if (mime.startsWith("image/")) {
+        el.classList.add("image-msg");
+        preview.addEventListener("click", () => openViewer(url, name));
+        preview.addEventListener("load", () => scrollToBottom(mine), { once: true });
+      }
       const a = document.createElement("a");
       a.href = url;
       a.download = name;
@@ -1564,6 +1570,39 @@ function addFileMessage({ name, size, mine, voice, duration }, opts) {
       info.append(s);
     },
   };
+}
+
+// ---------- Fotos ----------
+function openViewer(url, name) {
+  $("#viewerImg").src = url;
+  $("#viewerImg").alt = name;
+  $("#viewerDownload").href = url;
+  $("#viewerDownload").download = name;
+  $("#viewer").hidden = false;
+}
+
+function closeViewer() {
+  $("#viewer").hidden = true;
+  $("#viewerImg").removeAttribute("src");
+}
+
+// Reduce las fotos grandes (máx. 1920 px, JPEG) para que suban rápido y ocupen poco
+async function compressImage(file) {
+  if (!/^image\/(jpeg|png|webp|heic|heif)$/.test(file.type) || file.size < 400 * 1024) return file;
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, 1920 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
 }
 
 function queueFiles(files, meta = {}) {
@@ -2225,6 +2264,16 @@ function init() {
   $("#sendBtn").addEventListener("pointerdown", (e) => {
     if (document.activeElement === msgInput && msgInput.value.trim()) e.preventDefault();
   });
+  // Pegar imágenes con Ctrl+V (por ejemplo, una captura de pantalla)
+  msgInput.addEventListener("paste", (e) => {
+    const files = [...(e.clipboardData?.files || [])];
+    if (!files.length) return;
+    e.preventDefault();
+    queueFiles(files);
+  });
+  $("#viewerClose").addEventListener("click", closeViewer);
+  $("#viewer").addEventListener("click", (e) => { if (e.target.id === "viewer") closeViewer(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#viewer").hidden) closeViewer(); });
   $("#fileInput").addEventListener("change", (e) => {
     queueFiles([...e.target.files]);
     e.target.value = "";

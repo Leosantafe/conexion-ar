@@ -545,6 +545,47 @@ audio.preview { object-fit: initial; }
 .lazy-download .i { width: 16px; height: 16px; }
 #pickModal .card { gap: 14px; }
 
+/* Fotos: solo la imagen en la burbuja; al tocarla se abre en pantalla completa */
+.msg.image-msg { padding: 4px; }
+.msg.image-msg .file-body { display: none; }
+.msg.image-msg .preview {
+  margin: 0;
+  max-height: 340px;
+  min-width: 160px;
+  border-radius: 14px;
+  cursor: zoom-in;
+  background: rgb(127 127 127 / .15);
+}
+.msg.image-msg time { padding: 2px 6px 0; }
+.msg.image-msg .sender { padding: 2px 6px 4px; }
+
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 56px 8px 16px;
+  background: rgb(0 0 0 / .92);
+  animation: fade .15s ease-out;
+}
+.viewer img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+  user-select: none;
+}
+.viewer-bar {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  right: 8px;
+  display: flex;
+  gap: 4px;
+}
+.viewer .icon-btn { color: #fff; background: rgb(255 255 255 / .12); }
+.viewer .icon-btn:hover { background: rgb(255 255 255 / .25); }
+
 /* Mensajes de voz */
 .voice { display: flex; align-items: center; gap: 10px; min-width: 210px; padding: 2px 0; }
 .voice-play {
