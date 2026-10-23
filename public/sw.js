@@ -1,11 +1,11 @@
 // Service worker: permite instalar la app, abrirla sin conexión y mostrar avisos.
 // Estrategia "red primero": siempre intenta la versión nueva y usa la caché como respaldo.
-const CACHE = "conexion-ar-v11";
+const CACHE = "conexion-ar-v12";
 const ASSETS = [
   "./",
   "./index.html",
-  "./css/styles.css?v=11",
-  "./js/app.js?v=11",
+  "./css/styles.css?v=12",
+  "./js/app.js?v=12",
   "./js/crypto.js",
   "./js/firebase-config.js",
   "./manifest.json",

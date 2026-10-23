@@ -169,15 +169,20 @@ async function notify(request, env) {
   return json({ sent, members: members.length, statuses });
 }
 
-async function turn(env) {
-  if (!env.TURN_KEY_ID || !env.TURN_API_TOKEN) return json({ iceServers: [] });
-  const res = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${env.TURN_KEY_ID}/credentials/generate-ice-servers`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${env.TURN_API_TOKEN}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ ttl: 86400 }),
+// Servidor TURN de Metered: solo se usa si la conexión directa entre dispositivos falla.
+// Usuario y contraseña están como secretos del Worker (no en el código).
+function turn(env) {
+  if (!env.TURN_USERNAME || !env.TURN_PASSWORD) return json({ iceServers: [] });
+  const host = env.TURN_HOST || "us-central.relay.metered.ca";
+  const auth = { username: env.TURN_USERNAME, credential: env.TURN_PASSWORD };
+  return json({
+    iceServers: [
+      { urls: `turn:${host}:80`, ...auth },
+      { urls: `turn:${host}:80?transport=tcp`, ...auth },
+      { urls: `turn:${host}:443`, ...auth },
+      { urls: `turns:${host}:443?transport=tcp`, ...auth },
+    ],
   });
-  if (!res.ok) return json({ iceServers: [] });
-  return json(await res.json());
 }
 
 let corsOrigin = ALLOWED_ORIGINS[0];
@@ -202,7 +207,7 @@ export default {
     const { pathname } = new URL(request.url);
     try {
       if (request.method === "POST" && pathname === "/notify") return await notify(request, env);
-      if (pathname === "/turn") return await turn(env);
+      if (pathname === "/turn") return turn(env);
       if (pathname === "/") return json({ ok: true, service: "conexion-ar-push" });
       return json({ error: "no encontrado" }, 404);
     } catch (err) {

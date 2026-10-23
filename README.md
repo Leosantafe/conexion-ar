@@ -55,4 +55,7 @@ Al cambiar `css/styles.css` o `js/app.js`, subir el número `?v=` en `public/ind
 ## Limitaciones
 
 - Llamadas solo de a 2 personas.
-- En algunas redes (datos móviles con CGNAT, redes de empresa) la conexión directa falla; hace falta un servidor TURN en `iceServers` (`public/js/firebase-config.js`). El Worker ya tiene la ruta `/turn` para el TURN de Cloudflare (requiere tarjeta), o se puede usar el plan gratis de Metered.
+
+## Servidor TURN (Metered)
+
+Si la conexión directa falla (datos móviles con CGNAT, redes de empresa), las llamadas pasan por el TURN de Metered (plan gratis, sin tarjeta). La app pide los datos al Worker (`/turn`) al iniciar cada conexión. Usuario y contraseña son los secretos `TURN_USERNAME` y `TURN_PASSWORD` del Worker; el servidor está en `TURN_HOST` (`worker/wrangler.toml`).

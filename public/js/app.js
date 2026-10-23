@@ -289,8 +289,23 @@ const dcOpen = () => state.dc?.readyState === "open";
 const send = (obj) => state.dc.send(JSON.stringify(obj));
 
 // ---------- Conexión WebRTC ----------
+// Suma el servidor TURN (puente para redes que bloquean la conexión directa), pedido al Worker
+let turnServers = null;
+async function loadIceServers() {
+  if (turnServers || !pushConfig?.server) return;
+  try {
+    const res = await Promise.race([
+      fetch(`${pushConfig.server}/turn`).then((r) => r.json()),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("tiempo agotado")), 3000)),
+    ]);
+    turnServers = res.iceServers || [];
+  } catch (err) {
+    console.warn("TURN:", err);
+  }
+}
+
 function setupPeer() {
-  const pc = new RTCPeerConnection({ iceServers });
+  const pc = new RTCPeerConnection({ iceServers: [...iceServers, ...(turnServers || [])] });
   state.pc = pc;
 
   pc.ontrack = (e) => {
@@ -411,6 +426,7 @@ async function createRoom() {
     state.roomId = makeCode();
     const roomRef = doc(db, "rooms", state.roomId);
 
+    await loadIceServers();
     setupPeer();
     bindDataChannel(state.pc.createDataChannel("chat"));
     exchangeCandidates(
@@ -458,6 +474,7 @@ async function joinRoom() {
     state.mode = "quick";
     state.isCaller = false;
     state.roomId = code;
+    await loadIceServers();
     setupPeer();
     state.pc.ondatachannel = (e) => bindDataChannel(e.channel);
 
@@ -507,6 +524,7 @@ async function cleanupRoom() {
 // segundo responde ("callee"). Una transacción evita que los dos esperen a la vez.
 async function joinLine({ force = false } = {}) {
   teardownPeer();
+  await loadIceServers();
   const gen = ++state.lineGen;
   const lineRef = doc(db, "lines", state.line.secret);
   const me = deviceId();
